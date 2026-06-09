@@ -58,3 +58,10 @@ Thumbs.db
 # Backup files
 *.bak
 *.tmp
+
+# Internal docs (kept locally, not public)
+CLAUDE.md
+DESIGN.md
+PRD-Jaga.md
+TECH-STACK.md
+UPLOAD-WALKTHROUGH.md
