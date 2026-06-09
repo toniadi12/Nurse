@@ -32,6 +32,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +40,21 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Claude Code (per-developer AI tool config)
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.tmp
