@@ -1,16 +1,18 @@
 {
   "expo": {
-    "name": "Jaga",
-    "slug": "jaga",
-    "scheme": "jaga",
+    "name": "Royal British Legion",
+    "slug": "royal-british-legion",
+    "scheme": "rbl",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "uk.org.rbl.nurses"
     },
     "android": {
+      "package": "uk.org.rbl.nurses",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,6 +28,13 @@
       "expo-router",
       "expo-font",
       "expo-splash-screen"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "68c643f2-0eac-400c-84ae-b1522ff708eb"
+      }
+    },
+    "owner": "toniadi"
   }
 }
