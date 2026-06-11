@@ -25,6 +25,9 @@ interface FormTextFieldProps<TFieldValues extends FieldValues> {
   multiline?: boolean | undefined;
   keyboardType?: TextInputProps['keyboardType'] | undefined;
   bottomSheet?: boolean | undefined;
+  // Trigger saat field di-focus. Parent pakai untuk scroll programmatically
+  // ke field — penting untuk Note field di sheet yang sering ke-cover keyboard.
+  onFocus?: () => void;
 }
 
 export function FormTextField<TFieldValues extends FieldValues>({
@@ -35,6 +38,7 @@ export function FormTextField<TFieldValues extends FieldValues>({
   multiline,
   keyboardType,
   bottomSheet,
+  onFocus,
 }: FormTextFieldProps<TFieldValues>) {
   const { colors, typography, spacing, radius } = useTheme();
   const InputComponent = bottomSheet ? BottomSheetTextInput : TextInput;
@@ -49,6 +53,7 @@ export function FormTextField<TFieldValues extends FieldValues>({
             value={(value ?? '') as string}
             onChangeText={onChange}
             onBlur={onBlur}
+            onFocus={onFocus}
             placeholder={placeholder}
             placeholderTextColor={colors.textTertiary}
             multiline={multiline}

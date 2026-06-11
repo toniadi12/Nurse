@@ -14,7 +14,7 @@
 // stay di bawah 300 baris (CLAUDE.md hard limit).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Text, View } from 'react-native';
+import { Keyboard, Text, View, type ScrollView } from 'react-native';
 import BottomSheet, {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
@@ -63,7 +63,21 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
   const { colors, typography, spacing } = useTheme();
   const { state: shiftState, upsertShift } = useShifts();
   const sheetRef = useRef<BottomSheet>(null);
+  // Manual scroll-to-end saat field di bawah (Ward/Note) di-focus. Auto-scroll
+  // BottomSheetTextInput tidak reliable untuk multiline + form panjang.
+  const scrollRef = useRef<ScrollView>(null);
   const snapPoints = useMemo(() => [...SHEET_SNAP_POINTS], []);
+
+  // Delay sebelum scrollToEnd — kasih waktu keyboard animation selesai,
+  // baru sheet tahu posisi terakhir + scroll dapat target yang benar.
+  // 250ms cukup untuk keyboard Android default animation (200ms).
+  const SCROLL_DELAY_MS = 250;
+
+  function scrollToBottom() {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, SCROLL_DELAY_MS);
+  }
 
   const todayISO = format(new Date(), 'yyyy-MM-dd');
   const startingDate = initialDate ?? todayISO;
@@ -164,6 +178,9 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
       handleIndicatorStyle={{ backgroundColor: colors.borderStrong }}
     >
       <BottomSheetScrollView
+        // @ts-expect-error — BottomSheetScrollView accepts standard ScrollView
+        // ref tapi type definition-nya kurang lengkap di @gorhom v5.
+        ref={scrollRef}
         contentContainerStyle={{
           padding: spacing['2xl'],
           // Extra scroll buffer di bawah — Note field (paling bawah) butuh
@@ -246,6 +263,7 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
           name="ward"
           placeholder="e.g. A&E, ICU, Ward 5"
           bottomSheet
+          onFocus={scrollToBottom}
         />
         <View style={{ height: spacing.lg }} />
 
@@ -256,6 +274,7 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
           placeholder="e.g. swapped with Maya"
           multiline
           bottomSheet
+          onFocus={scrollToBottom}
         />
 
         <AddShiftSheetActions
