@@ -1,23 +1,29 @@
-// Bottom sheet untuk tambah/edit shift manual (PRD F4).
+// Modal tambah/edit shift manual (PRD F4).
 //
-// Field: tanggal (text input — picker dropped untuk MVP karena tidak
-// reliable di dalam @gorhom/bottom-sheet di Expo Go), jenis shift,
-// opsi jam custom (kalau code=CUSTOM), ruangan optional, catatan
-// optional. Auto-save tanpa konfirmasi tambahan, KECUALI kalau tanggal
-// yg sama udah ada shift → confirm via ConfirmDialog.
+// Field: tanggal (text input), jenis shift, opsi jam custom (kalau
+// code=CUSTOM), ruangan optional, catatan optional. Auto-save tanpa
+// konfirmasi tambahan, KECUALI kalau tanggal yg sama udah ada shift →
+// confirm via ConfirmDialog.
 //
-// Form: react-hook-form + zod. Sheet: @gorhom/bottom-sheet (auto-expand
-// saat mount, pan-down-to-close). Parent yg control lifecycle via prop
-// `onClose` — sheet ini cuma render kalau parent set visible.
+// KENAPA Modal + KeyboardAvoidingView + ScrollView, bukan @gorhom/bottom-sheet?
+//   Bottom sheet + form panjang + keyboard = sumber bug keyboard nutup
+//   field (terutama Note di paling bawah, terutama di standalone APK).
+//   Pola Modal + KeyboardAvoidingView + ScrollView ini sama persis dengan
+//   app/swap/new.tsx yang sudah terbukti jalan tanpa masalah keyboard.
 //
-// Footer buttons di-extract ke AddShiftSheetActions.tsx supaya file ini
-// stay di bawah 300 baris (CLAUDE.md hard limit).
+// Form: react-hook-form + zod. Footer buttons di AddShiftSheetActions.tsx.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Text, View, type ScrollView } from 'react-native';
-import BottomSheet, {
-  BottomSheetScrollView,
-} from '@gorhom/bottom-sheet';
+import { useEffect, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -33,19 +39,10 @@ import { createShift } from '@/lib/shiftFactory';
 import { formatNaturalDate } from '@/lib/dateUtils';
 import { SHIFT_DEFAULT_TIMES, SHIFT_LABEL_ID } from '@/constants/shiftCodes';
 
-// Single snap point 92% — sheet hampir full-height. Lebih tinggi dari
-// sebelumnya (70/95%) karena form punya banyak field dan Note di paling
-// bawah. Plus keyboardBehavior='extend' di bawah bikin sheet extend ke
-// top saat keyboard muncul = ruang max untuk content scroll.
-const SHEET_SNAP_POINTS = ['92%'] as const;
-
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-// Extra scroll buffer di bawah supaya Note field (yang paling bawah) bisa
-// scroll ke atas keyboard. Hardcoded 320 = lebih besar dari tinggi keyboard
-// Android maksimal (~280px) + breathing room. Tanpa buffer ini, scroll
-// mentok di edge content walaupun BottomSheetTextInput auto-scroll.
-const SCROLL_BOTTOM_BUFFER = 320;
+// Sheet maksimal 90% tinggi layar — sisanya backdrop transparan di atas.
+const SHEET_MAX_HEIGHT = '90%';
 
 interface Props {
   onClose: () => void;
@@ -60,24 +57,8 @@ interface PendingReplace {
 }
 
 export function AddShiftSheet({ onClose, initialDate }: Props) {
-  const { colors, typography, spacing } = useTheme();
+  const { colors, typography, spacing, radius } = useTheme();
   const { state: shiftState, upsertShift } = useShifts();
-  const sheetRef = useRef<BottomSheet>(null);
-  // Manual scroll-to-end saat field di bawah (Ward/Note) di-focus. Auto-scroll
-  // BottomSheetTextInput tidak reliable untuk multiline + form panjang.
-  const scrollRef = useRef<ScrollView>(null);
-  const snapPoints = useMemo(() => [...SHEET_SNAP_POINTS], []);
-
-  // Delay sebelum scrollToEnd — kasih waktu keyboard animation selesai,
-  // baru sheet tahu posisi terakhir + scroll dapat target yang benar.
-  // 250ms cukup untuk keyboard Android default animation (200ms).
-  const SCROLL_DELAY_MS = 250;
-
-  function scrollToBottom() {
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, SCROLL_DELAY_MS);
-  }
 
   const todayISO = format(new Date(), 'yyyy-MM-dd');
   const startingDate = initialDate ?? todayISO;
@@ -126,15 +107,7 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
       ...(data.note ? { note: data.note } : {}),
     });
     upsertShift(shift);
-    sheetRef.current?.close();
-  }
-
-  // Dismiss keyboard sebelum action apapun (Save / Cancel).
-  // Standard UX: user tap tombol → keyboard hilang dulu, baru handler jalan.
-  // Tanpa ini, keyboard tetap nempel walau sheet closing → flicker.
-  function dismissKeyboardThen(fn: () => void) {
-    Keyboard.dismiss();
-    fn();
+    onClose();
   }
 
   function onSubmit(data: AddShiftFormData) {
@@ -154,134 +127,146 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
   }
 
   return (
-    <BottomSheet
-      ref={sheetRef}
-      // index={0} = mount open di snap point pertama (70%). Sebelumnya
-      // pakai index={-1} + useEffect expand() — ref timing kadang race
-      // di @gorhom v5 jadi sheet stuck closed walaupun mount.
-      index={0}
-      snapPoints={snapPoints}
-      enablePanDownToClose
-      // Keyboard handling:
-      //   - 'extend' = sheet extend ke top saat keyboard buka, max space
-      //     untuk content scroll. INI yg bikin Note field bisa scroll ke atas
-      //     keyboard. 'interactive' (sebelumnya) cuma animasi, tidak extend.
-      //   - 'restore' = sheet balik posisi awal saat keyboard tutup
-      //   - adjustResize Android = window resize untuk akomodasi keyboard
-      keyboardBehavior="extend"
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
-      onChange={(idx) => {
-        if (idx === -1) onClose();
-      }}
-      backgroundStyle={{ backgroundColor: colors.surface }}
-      handleIndicatorStyle={{ backgroundColor: colors.borderStrong }}
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
     >
-      <BottomSheetScrollView
-        // @ts-expect-error — BottomSheetScrollView accepts standard ScrollView
-        // ref tapi type definition-nya kurang lengkap di @gorhom v5.
-        ref={scrollRef}
-        contentContainerStyle={{
-          padding: spacing['2xl'],
-          // Extra scroll buffer di bawah — Note field (paling bawah) butuh
-          // ruang scroll supaya bisa keluar dari area keyboard. Tanpa ini,
-          // walaupun BottomSheetTextInput auto-scroll, field tetep mentok
-          // di edge sheet.
-          paddingBottom: SCROLL_BOTTOM_BUFFER,
+      {/* Backdrop transparan — tap di luar sheet untuk close. */}
+      <Pressable
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
+        onPress={onClose}
+      />
+
+      <KeyboardAvoidingView
+        // iOS perlu 'padding' supaya konten naik di atas keyboard. Android
+        // pakai undefined + andalkan windowSoftInputMode=adjustResize (di-set
+        // di app.json android.softwareKeyboardLayoutMode) — window resize
+        // otomatis, ScrollView dapat ruang.
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
         }}
-        // 'handled' = tap pada element interactive (button) tetap jalan,
-        // tap pada area kosong dismiss keyboard. Tanpa ini, tap Save bisa
-        // ke-blok karena scroll view tangkap dulu untuk dismiss keyboard.
-        keyboardShouldPersistTaps="handled"
       >
-        <Text
-          style={[
-            typography.displaySM,
-            { color: colors.textPrimary, marginBottom: spacing['2xl'] },
-          ]}
+        <SafeAreaView
+          edges={['bottom']}
+          style={{
+            backgroundColor: colors.surface,
+            borderTopLeftRadius: radius['2xl'],
+            borderTopRightRadius: radius['2xl'],
+            maxHeight: SHEET_MAX_HEIGHT,
+          }}
         >
-          Add shift
-        </Text>
-
-        <FieldLabel>Date</FieldLabel>
-        <FormTextField
-          control={control}
-          name="date"
-          placeholder="2026-05-27"
-          error={errors.date?.message}
-          keyboardType="numbers-and-punctuation"
-          bottomSheet
-        />
-        <Text
-          style={[
-            typography.bodyXS,
-            {
-              color: datePreview ? colors.textSecondary : colors.textTertiary,
-              marginTop: spacing.xs,
-              marginBottom: spacing.lg,
-            },
-          ]}
-        >
-          {datePreview ?? 'Format: YYYY-MM-DD (e.g. 2026-05-27)'}
-        </Text>
-
-        <FieldLabel>Shift type</FieldLabel>
-        <View style={{ marginBottom: spacing.lg }}>
-          <Controller
-            control={control}
-            name="code"
-            render={({ field }) => (
-              <ShiftCodeSelector value={field.value} onChange={field.onChange} />
-            )}
-          />
-        </View>
-
-        {showTimeFields && (
-          <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
-            <View style={{ flex: 1 }}>
-              <FieldLabel>Start</FieldLabel>
-              <TimeField
-                control={control}
-                name="startTime"
-                error={errors.startTime?.message}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <FieldLabel>End</FieldLabel>
-              <TimeField
-                control={control}
-                name="endTime"
-                error={errors.endTime?.message}
-              />
-            </View>
+          {/* Handle indicator — visual cue "ini sheet". */}
+          <View style={{ alignItems: 'center', paddingTop: spacing.md }}>
+            <View
+              style={{
+                width: 40,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.borderStrong,
+              }}
+            />
           </View>
-        )}
 
-        <FieldLabel>Ward (optional)</FieldLabel>
-        <FormTextField
-          control={control}
-          name="ward"
-          placeholder="e.g. A&E, ICU, Ward 5"
-          bottomSheet
-          onFocus={scrollToBottom}
-        />
-        <View style={{ height: spacing.lg }} />
+          <ScrollView
+            contentContainerStyle={{
+              padding: spacing['2xl'],
+              paddingBottom: spacing['4xl'],
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text
+              style={[
+                typography.displaySM,
+                { color: colors.textPrimary, marginBottom: spacing['2xl'] },
+              ]}
+            >
+              Add shift
+            </Text>
 
-        <FieldLabel>Note (optional)</FieldLabel>
-        <FormTextField
-          control={control}
-          name="note"
-          placeholder="e.g. swapped with Maya"
-          multiline
-          bottomSheet
-          onFocus={scrollToBottom}
-        />
+            <FieldLabel>Date</FieldLabel>
+            <FormTextField
+              control={control}
+              name="date"
+              placeholder="2026-05-27"
+              error={errors.date?.message}
+              keyboardType="numbers-and-punctuation"
+            />
+            <Text
+              style={[
+                typography.bodyXS,
+                {
+                  color: datePreview ? colors.textSecondary : colors.textTertiary,
+                  marginTop: spacing.xs,
+                  marginBottom: spacing.lg,
+                },
+              ]}
+            >
+              {datePreview ?? 'Format: YYYY-MM-DD (e.g. 2026-05-27)'}
+            </Text>
 
-        <AddShiftSheetActions
-          onCancel={() => dismissKeyboardThen(() => sheetRef.current?.close())}
-          onSave={() => dismissKeyboardThen(handleSubmit(onSubmit))}
-        />
-      </BottomSheetScrollView>
+            <FieldLabel>Shift type</FieldLabel>
+            <View style={{ marginBottom: spacing.lg }}>
+              <Controller
+                control={control}
+                name="code"
+                render={({ field }) => (
+                  <ShiftCodeSelector value={field.value} onChange={field.onChange} />
+                )}
+              />
+            </View>
+
+            {showTimeFields && (
+              <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg }}>
+                <View style={{ flex: 1 }}>
+                  <FieldLabel>Start</FieldLabel>
+                  <TimeField
+                    control={control}
+                    name="startTime"
+                    error={errors.startTime?.message}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <FieldLabel>End</FieldLabel>
+                  <TimeField
+                    control={control}
+                    name="endTime"
+                    error={errors.endTime?.message}
+                  />
+                </View>
+              </View>
+            )}
+
+            <FieldLabel>Ward (optional)</FieldLabel>
+            <FormTextField
+              control={control}
+              name="ward"
+              placeholder="e.g. A&E, ICU, Ward 5"
+            />
+            <View style={{ height: spacing.lg }} />
+
+            <FieldLabel>Note (optional)</FieldLabel>
+            <FormTextField
+              control={control}
+              name="note"
+              placeholder="e.g. swapped with Maya"
+              multiline
+            />
+
+            <AddShiftSheetActions
+              onCancel={onClose}
+              onSave={handleSubmit(onSubmit)}
+            />
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
 
       <ConfirmDialog
         visible={pendingReplace != null}
@@ -297,6 +282,6 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
         onCancel={() => setPendingReplace(null)}
         onConfirm={handleConfirmReplace}
       />
-    </BottomSheet>
+    </Modal>
   );
 }

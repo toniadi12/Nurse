@@ -3,14 +3,8 @@
 // Pakai generic <T extends FieldValues> biar bisa dipakai di berbagai form
 // (AddShiftSheet, F10 Settings, dll). Visual: border halus, border merah
 // kalau error, label di atas terpisah (parent yg render).
-//
-// Prop `bottomSheet`: kalau true, pakai BottomSheetTextInput dari
-// @gorhom/bottom-sheet. Ini bikin sheet auto-scroll ke field yang lagi
-// di-focus saat keyboard muncul — jadi tidak ke-cover keyboard.
-// Pakai true CUMA kalau komponen ini di-render di dalam <BottomSheet>.
 
 import { Text, TextInput, View, type TextInputProps } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Controller, type Control, type FieldPath, type FieldValues } from 'react-hook-form';
 import { useTheme } from '@/context/theme';
 
@@ -24,10 +18,6 @@ interface FormTextFieldProps<TFieldValues extends FieldValues> {
   error?: string | undefined;
   multiline?: boolean | undefined;
   keyboardType?: TextInputProps['keyboardType'] | undefined;
-  bottomSheet?: boolean | undefined;
-  // Trigger saat field di-focus. Parent pakai untuk scroll programmatically
-  // ke field — penting untuk Note field di sheet yang sering ke-cover keyboard.
-  onFocus?: () => void;
 }
 
 export function FormTextField<TFieldValues extends FieldValues>({
@@ -37,11 +27,8 @@ export function FormTextField<TFieldValues extends FieldValues>({
   error,
   multiline,
   keyboardType,
-  bottomSheet,
-  onFocus,
 }: FormTextFieldProps<TFieldValues>) {
   const { colors, typography, spacing, radius } = useTheme();
-  const InputComponent = bottomSheet ? BottomSheetTextInput : TextInput;
 
   return (
     <Controller
@@ -49,11 +36,10 @@ export function FormTextField<TFieldValues extends FieldValues>({
       name={name}
       render={({ field: { value, onChange, onBlur } }) => (
         <View>
-          <InputComponent
+          <TextInput
             value={(value ?? '') as string}
             onChangeText={onChange}
             onBlur={onBlur}
-            onFocus={onFocus}
             placeholder={placeholder}
             placeholderTextColor={colors.textTertiary}
             multiline={multiline}
