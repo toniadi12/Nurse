@@ -14,7 +14,7 @@
 // stay di bawah 300 baris (CLAUDE.md hard limit).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Keyboard, Text, View } from 'react-native';
 import BottomSheet, {
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
@@ -33,17 +33,19 @@ import { createShift } from '@/lib/shiftFactory';
 import { formatNaturalDate } from '@/lib/dateUtils';
 import { SHIFT_DEFAULT_TIMES, SHIFT_LABEL_ID } from '@/constants/shiftCodes';
 
-// Snap point: 70% normal, 95% saat keyboard buka.
-// @gorhom/bottom-sheet keyboardBehavior='interactive' auto-snap ke tertinggi.
-const SHEET_SNAP_POINTS = ['70%', '95%'] as const;
+// Single snap point 92% — sheet hampir full-height. Lebih tinggi dari
+// sebelumnya (70/95%) karena form punya banyak field dan Note di paling
+// bawah. Plus keyboardBehavior='extend' di bawah bikin sheet extend ke
+// top saat keyboard muncul = ruang max untuk content scroll.
+const SHEET_SNAP_POINTS = ['92%'] as const;
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-// Extra scroll buffer di bawah supaya Note field (yang paling bawah) tidak
-// ke-cover keyboard. Hardcoded 200 karena keyboard Android bisa setinggi
-// 200-300px — sheet auto-scroll via BottomSheetTextInput + buffer ini =
-// jaminan field selalu kelihatan.
-const SCROLL_BOTTOM_BUFFER = 200;
+// Extra scroll buffer di bawah supaya Note field (yang paling bawah) bisa
+// scroll ke atas keyboard. Hardcoded 320 = lebih besar dari tinggi keyboard
+// Android maksimal (~280px) + breathing room. Tanpa buffer ini, scroll
+// mentok di edge content walaupun BottomSheetTextInput auto-scroll.
+const SCROLL_BOTTOM_BUFFER = 320;
 
 interface Props {
   onClose: () => void;
@@ -113,6 +115,14 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
     sheetRef.current?.close();
   }
 
+  // Dismiss keyboard sebelum action apapun (Save / Cancel).
+  // Standard UX: user tap tombol → keyboard hilang dulu, baru handler jalan.
+  // Tanpa ini, keyboard tetap nempel walau sheet closing → flicker.
+  function dismissKeyboardThen(fn: () => void) {
+    Keyboard.dismiss();
+    fn();
+  }
+
   function onSubmit(data: AddShiftFormData) {
     const existing =
       shiftState.kind === 'ready' ? shiftState.shifts[data.date] : undefined;
@@ -138,10 +148,13 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
       index={0}
       snapPoints={snapPoints}
       enablePanDownToClose
-      // Keyboard handling — krusial supaya field & tombol Save gak ke-cover
-      // saat user input ruangan/catatan. 'interactive' = sheet ikut naik
-      // bareng keyboard, 'restore' = sheet kembali ke posisi awal saat blur.
-      keyboardBehavior="interactive"
+      // Keyboard handling:
+      //   - 'extend' = sheet extend ke top saat keyboard buka, max space
+      //     untuk content scroll. INI yg bikin Note field bisa scroll ke atas
+      //     keyboard. 'interactive' (sebelumnya) cuma animasi, tidak extend.
+      //   - 'restore' = sheet balik posisi awal saat keyboard tutup
+      //   - adjustResize Android = window resize untuk akomodasi keyboard
+      keyboardBehavior="extend"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustResize"
       onChange={(idx) => {
@@ -159,6 +172,10 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
           // di edge sheet.
           paddingBottom: SCROLL_BOTTOM_BUFFER,
         }}
+        // 'handled' = tap pada element interactive (button) tetap jalan,
+        // tap pada area kosong dismiss keyboard. Tanpa ini, tap Save bisa
+        // ke-blok karena scroll view tangkap dulu untuk dismiss keyboard.
+        keyboardShouldPersistTaps="handled"
       >
         <Text
           style={[
@@ -242,8 +259,8 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
         />
 
         <AddShiftSheetActions
-          onCancel={() => sheetRef.current?.close()}
-          onSave={handleSubmit(onSubmit)}
+          onCancel={() => dismissKeyboardThen(() => sheetRef.current?.close())}
+          onSave={() => dismissKeyboardThen(handleSubmit(onSubmit))}
         />
       </BottomSheetScrollView>
 
