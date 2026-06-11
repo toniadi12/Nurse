@@ -39,6 +39,12 @@ const SHEET_SNAP_POINTS = ['70%', '95%'] as const;
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// Extra scroll buffer di bawah supaya Note field (yang paling bawah) tidak
+// ke-cover keyboard. Hardcoded 200 karena keyboard Android bisa setinggi
+// 200-300px — sheet auto-scroll via BottomSheetTextInput + buffer ini =
+// jaminan field selalu kelihatan.
+const SCROLL_BOTTOM_BUFFER = 200;
+
 interface Props {
   onClose: () => void;
   // Optional — kalau di-set, form starts dengan tanggal ini (mis. user tap
@@ -147,10 +153,11 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
       <BottomSheetScrollView
         contentContainerStyle={{
           padding: spacing['2xl'],
-          // Extra space di bottom — tombol Save harus tetap kelihatan
-          // saat keyboard buka. Sheet auto-snap ke 95% via keyboardBehavior,
-          // plus scroll buffer biar tombol gak nempel ke edge.
-          paddingBottom: spacing['6xl'],
+          // Extra scroll buffer di bawah — Note field (paling bawah) butuh
+          // ruang scroll supaya bisa keluar dari area keyboard. Tanpa ini,
+          // walaupun BottomSheetTextInput auto-scroll, field tetep mentok
+          // di edge sheet.
+          paddingBottom: SCROLL_BOTTOM_BUFFER,
         }}
       >
         <Text
@@ -169,6 +176,7 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
           placeholder="2026-05-27"
           error={errors.date?.message}
           keyboardType="numbers-and-punctuation"
+          bottomSheet
         />
         <Text
           style={[
@@ -220,6 +228,7 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
           control={control}
           name="ward"
           placeholder="e.g. A&E, ICU, Ward 5"
+          bottomSheet
         />
         <View style={{ height: spacing.lg }} />
 
@@ -229,6 +238,7 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
           name="note"
           placeholder="e.g. swapped with Maya"
           multiline
+          bottomSheet
         />
 
         <AddShiftSheetActions

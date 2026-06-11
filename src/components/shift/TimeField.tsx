@@ -2,10 +2,12 @@
 // Hindari frustrasi user karena keyboard numerik HP default delimiter titik
 // (.), bukan titik dua (:).
 //
-// Inline pakai TextInput langsung dengan onChangeText custom — bukan pakai
-// FormTextField karena butuh transform input sebelum onChange.
+// Pakai BottomSheetTextInput (bukan TextInput biasa) karena komponen ini
+// selalu di-render di dalam AddShiftSheet — supaya sheet auto-scroll ke
+// field yang lagi di-focus saat keyboard muncul.
 
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { Controller, type Control } from 'react-hook-form';
 import { useTheme } from '@/context/theme';
 import {
@@ -29,7 +31,7 @@ export function TimeField({ control, name, error }: Props) {
       name={name}
       render={({ field: { value, onChange, onBlur } }) => (
         <View>
-          <TextInput
+          <BottomSheetTextInput
             value={(value ?? '') as string}
             onChangeText={(raw) => onChange(normalizeTimeInput(raw))}
             onBlur={onBlur}
