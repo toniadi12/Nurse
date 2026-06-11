@@ -3,7 +3,7 @@
     "name": "Royal British Legion",
     "slug": "royal-british-legion",
     "scheme": "rbl",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "uk.org.rbl.nurses",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
