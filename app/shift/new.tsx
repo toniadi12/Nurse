@@ -42,6 +42,11 @@ import { SHIFT_DEFAULT_TIMES, SHIFT_LABEL_ID } from '@/constants/shiftCodes';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+// Ruang kosong di bawah konten scroll. Cukup besar (> tinggi keyboard
+// Android ~300px) supaya field terakhir + tombol Save selalu bisa di-scroll
+// naik ke atas keyboard.
+const SCROLL_BOTTOM_CLEARANCE = 400;
+
 interface PendingReplace {
   data: AddShiftFormData;
   existingLabel: string;
@@ -150,12 +155,14 @@ export default function NewShiftScreen() {
         contentContainerStyle={{
           paddingHorizontal: spacing['2xl'],
           paddingTop: spacing.md,
-          paddingBottom: spacing['4xl'],
+          // Padding bawah BESAR (400) — ruang scroll ekstra supaya field
+          // terakhir (Note) + tombol Save bisa di-scroll ke atas keyboard.
+          // Tanpa ini, walau keyboard-controller auto-scroll, tidak ada
+          // ruang untuk scroll Save ke atas keyboard.
+          paddingBottom: SCROLL_BOTTOM_CLEARANCE,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        // Jarak ekstra antara field yang di-focus dan keyboard supaya
-        // field tidak mepet ke ujung keyboard.
         bottomOffset={spacing['2xl']}
       >
           <FieldLabel>Date</FieldLabel>
