@@ -1,15 +1,16 @@
-// Modal tambah/edit shift manual (PRD F4).
+// Modal full-screen tambah/edit shift manual (PRD F4).
 //
 // Field: tanggal (text input), jenis shift, opsi jam custom (kalau
 // code=CUSTOM), ruangan optional, catatan optional. Auto-save tanpa
 // konfirmasi tambahan, KECUALI kalau tanggal yg sama udah ada shift →
 // confirm via ConfirmDialog.
 //
-// KENAPA Modal + KeyboardAvoidingView + ScrollView, bukan @gorhom/bottom-sheet?
-//   Bottom sheet + form panjang + keyboard = sumber bug keyboard nutup
-//   field (terutama Note di paling bawah, terutama di standalone APK).
-//   Pola Modal + KeyboardAvoidingView + ScrollView ini sama persis dengan
-//   app/swap/new.tsx yang sudah terbukti jalan tanpa masalah keyboard.
+// KENAPA full-screen Modal + SafeAreaView + KeyboardAvoidingView + ScrollView?
+//   Persis pola app/swap/new.tsx yang sudah terbukti jalan tanpa masalah
+//   keyboard. Pendekatan bottom-sheet (partial height) berulang kali gagal
+//   karena keyboard nutup field di bawah (Note). Full-screen = ScrollView
+//   punya seluruh layar + KeyboardAvoidingView push konten naik di atas
+//   keyboard. Reliable di Expo Go DAN standalone APK.
 //
 // Form: react-hook-form + zod. Footer buttons di AddShiftSheetActions.tsx.
 
@@ -24,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { X } from 'lucide-react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
@@ -41,9 +43,6 @@ import { SHIFT_DEFAULT_TIMES, SHIFT_LABEL_ID } from '@/constants/shiftCodes';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-// Sheet maksimal 90% tinggi layar — sisanya backdrop transparan di atas.
-const SHEET_MAX_HEIGHT = '90%';
-
 interface Props {
   onClose: () => void;
   // Optional — kalau di-set, form starts dengan tanggal ini (mis. user tap
@@ -57,7 +56,7 @@ interface PendingReplace {
 }
 
 export function AddShiftSheet({ onClose, initialDate }: Props) {
-  const { colors, typography, spacing, radius } = useTheme();
+  const { colors, typography, spacing } = useTheme();
   const { state: shiftState, upsertShift } = useShifts();
 
   const todayISO = format(new Date(), 'yyyy-MM-dd');
@@ -127,70 +126,49 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
   }
 
   return (
-    <Modal
-      visible
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      {/* Backdrop transparan — tap di luar sheet untuk close. */}
-      <Pressable
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
-        onPress={onClose}
-      />
-
-      <KeyboardAvoidingView
-        // iOS perlu 'padding' supaya konten naik di atas keyboard. Android
-        // pakai undefined + andalkan windowSoftInputMode=adjustResize (di-set
-        // di app.json android.softwareKeyboardLayoutMode) — window resize
-        // otomatis, ScrollView dapat ruang.
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-        }}
+    <Modal visible animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        edges={['top', 'bottom']}
       >
-        <SafeAreaView
-          edges={['bottom']}
-          style={{
-            backgroundColor: colors.surface,
-            borderTopLeftRadius: radius['2xl'],
-            borderTopRightRadius: radius['2xl'],
-            maxHeight: SHEET_MAX_HEIGHT,
-          }}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {/* Handle indicator — visual cue "ini sheet". */}
-          <View style={{ alignItems: 'center', paddingTop: spacing.md }}>
-            <View
-              style={{
-                width: 40,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: colors.borderStrong,
-              }}
-            />
+          {/* Header: judul + tombol close */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: spacing['2xl'],
+              paddingTop: spacing.lg,
+              paddingBottom: spacing.md,
+            }}
+          >
+            <Text style={[typography.displaySM, { color: colors.textPrimary }]}>
+              Add shift
+            </Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <X color={colors.textSecondary} size={24} strokeWidth={1.5} />
+            </Pressable>
           </View>
 
           <ScrollView
+            style={{ flex: 1 }}
             contentContainerStyle={{
-              padding: spacing['2xl'],
+              paddingHorizontal: spacing['2xl'],
+              paddingTop: spacing.md,
               paddingBottom: spacing['4xl'],
             }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text
-              style={[
-                typography.displaySM,
-                { color: colors.textPrimary, marginBottom: spacing['2xl'] },
-              ]}
-            >
-              Add shift
-            </Text>
-
             <FieldLabel>Date</FieldLabel>
             <FormTextField
               control={control}
@@ -265,8 +243,8 @@ export function AddShiftSheet({ onClose, initialDate }: Props) {
               onSave={handleSubmit(onSubmit)}
             />
           </ScrollView>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
       <ConfirmDialog
         visible={pendingReplace != null}
