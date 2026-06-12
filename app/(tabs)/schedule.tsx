@@ -1,16 +1,17 @@
 // Tab 2 — Jadwal (PRD F6 kalender bulanan).
 //
 // Layout: MonthHeader + CalendarGrid + MonthStats + FAB.
-// State: viewMonth (Date) untuk navigasi, sheetOpen + sheetInitialDate
-// untuk AddShiftSheet (kalau user tap cell, prefill tanggal).
+// State: viewMonth (Date) untuk navigasi. Tambah shift → navigate ke
+// route /shift/new (full screen, keyboard-safe). Tap cell kalender
+// prefill tanggal via query param ?date=.
 
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import { useTheme } from '@/context/theme';
 import { useShifts } from '@/context/shifts';
-import { AddShiftSheet } from '@/components/shift/AddShiftSheet';
 import { CalendarGrid } from '@/components/calendar/CalendarGrid';
 import { MonthHeader } from '@/components/calendar/MonthHeader';
 import { MonthStats } from '@/components/calendar/MonthStats';
@@ -35,26 +36,17 @@ export default function ScheduleTab() {
     FLOATING_TAB_BAR_VISIBLE_HEIGHT +
     FAB_GAP_ABOVE_NAV;
   const [viewMonth, setViewMonth] = useState(() => new Date());
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetInitialDate, setSheetInitialDate] = useState<string | undefined>(undefined);
 
   const shifts = state.kind === 'ready' ? state.shifts : {};
   const cells = useMemo(() => generateMonthGrid(viewMonth), [viewMonth]);
   const stats = useMemo(() => getMonthStats(shifts, viewMonth), [shifts, viewMonth]);
 
   function handleCellPress(iso: string) {
-    setSheetInitialDate(iso);
-    setSheetOpen(true);
+    router.push(`/shift/new?date=${iso}`);
   }
 
   function handleFabPress() {
-    setSheetInitialDate(undefined); // default ke hari ini
-    setSheetOpen(true);
-  }
-
-  function handleSheetClose() {
-    setSheetOpen(false);
-    setSheetInitialDate(undefined);
+    router.push('/shift/new'); // default ke hari ini
   }
 
   return (
@@ -114,13 +106,6 @@ export default function ScheduleTab() {
           <Plus color={colors.textInverse} size={28} strokeWidth={2} />
         </Pressable>
       </View>
-
-      {sheetOpen && (
-        <AddShiftSheet
-          onClose={handleSheetClose}
-          initialDate={sheetInitialDate}
-        />
-      )}
     </SafeAreaView>
   );
 }
