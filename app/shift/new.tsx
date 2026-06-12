@@ -5,25 +5,23 @@
 // konfirmasi tambahan, KECUALI kalau tanggal yg sama udah ada shift →
 // confirm via ConfirmDialog.
 //
-// KENAPA route penuh, bukan Modal/bottom-sheet?
-//   React Native <Modal> di Android bikin window terpisah yang TIDAK ikut
-//   windowSoftInputMode=adjustResize — jadi KeyboardAvoidingView gagal lift
-//   konten, keyboard nutup field. Route penuh pakai main activity window
-//   (yang adjustResize) — persis app/swap/new.tsx yang sudah terbukti jalan.
+// KENAPA route penuh + KeyboardAwareScrollView?
+//   Expo SDK 54 mengaktifkan edge-to-edge di APK standalone. Di mode itu,
+//   windowSoftInputMode=adjustResize TIDAK lagi mengecilkan window saat
+//   keyboard buka — jadi KeyboardAvoidingView biasa gagal, keyboard nutup
+//   field. Ini cuma muncul di APK, TIDAK di Expo Go (Expo Go tanpa edge-to-edge)
+//   — makanya test di Expo Go menipu.
+//   Solusi resmi Expo untuk form multi-field di edge-to-edge:
+//   react-native-keyboard-controller → KeyboardAwareScrollView yang otomatis
+//   scroll ke field yang lagi di-focus (butuh KeyboardProvider di root).
 //
 // Param `date` (opsional): prefill tanggal kalau user tap cell kalender.
 //
 // Form: react-hook-form + zod. Footer buttons di AddShiftSheetActions.tsx.
 
 import { useEffect, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -125,42 +123,41 @@ export default function NewShiftScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       edges={['top', 'bottom']}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* Header: back button + judul */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: spacing.lg,
+          gap: spacing.md,
+        }}
       >
-        {/* Header: back button + judul */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: spacing.lg,
-            gap: spacing.md,
-          }}
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
         >
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            accessibilityLabel="Back"
-            accessibilityRole="button"
-          >
-            <ArrowLeft color={colors.textPrimary} size={24} strokeWidth={1.5} />
-          </Pressable>
-          <Text style={[typography.displaySM, { color: colors.textPrimary }]}>
-            Add shift
-          </Text>
-        </View>
+          <ArrowLeft color={colors.textPrimary} size={24} strokeWidth={1.5} />
+        </Pressable>
+        <Text style={[typography.displaySM, { color: colors.textPrimary }]}>
+          Add shift
+        </Text>
+      </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            paddingHorizontal: spacing['2xl'],
-            paddingTop: spacing.md,
-            paddingBottom: spacing['4xl'],
-          }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: spacing['2xl'],
+          paddingTop: spacing.md,
+          paddingBottom: spacing['4xl'],
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        // Jarak ekstra antara field yang di-focus dan keyboard supaya
+        // field tidak mepet ke ujung keyboard.
+        bottomOffset={spacing['2xl']}
+      >
           <FieldLabel>Date</FieldLabel>
           <FormTextField
             control={control}
@@ -234,8 +231,7 @@ export default function NewShiftScreen() {
             onCancel={() => router.back()}
             onSave={handleSubmit(onSubmit)}
           />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <ConfirmDialog
         visible={pendingReplace != null}

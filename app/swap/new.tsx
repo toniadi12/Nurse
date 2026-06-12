@@ -11,15 +11,13 @@
 
 import { useMemo, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Linking,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -157,38 +155,35 @@ export default function NewSwapScreen() {
       style={{ flex: 1, backgroundColor: colors.background }}
       edges={['top', 'bottom']}
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* Header dengan back button */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: spacing.lg,
+          gap: spacing.md,
+        }}
       >
-        {/* Header dengan back button */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: spacing.lg,
-            gap: spacing.md,
-          }}
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          accessibilityLabel="Back"
         >
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            accessibilityLabel="Back"
-          >
-            <ArrowLeft color={colors.textPrimary} size={24} strokeWidth={1.5} />
-          </Pressable>
-          <Text style={[typography.displaySM, { color: colors.textPrimary }]}>
-            Swap shift
-          </Text>
-        </View>
+          <ArrowLeft color={colors.textPrimary} size={24} strokeWidth={1.5} />
+        </Pressable>
+        <Text style={[typography.displaySM, { color: colors.textPrimary }]}>
+          Swap shift
+        </Text>
+      </View>
 
-        <ScrollView
-          contentContainerStyle={{
-            padding: spacing['2xl'],
-            paddingBottom: spacing['5xl'],
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
+      <KeyboardAwareScrollView
+        contentContainerStyle={{
+          padding: spacing['2xl'],
+          paddingBottom: spacing['5xl'],
+        }}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={spacing['2xl']}
+      >
           {/* Section 1: Shift saya */}
           <FieldLabel>Your shift to give up</FieldLabel>
           <MyShiftPicker
@@ -258,8 +253,7 @@ export default function NewSwapScreen() {
               Send via WhatsApp
             </Text>
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <ConfirmDialog
         visible={infoDialog != null}
